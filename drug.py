@@ -1,43 +1,40 @@
 import streamlit as st
+from rdkit import Chem
+from rdkit.Chem import Draw
+from rdkit.Chem.AllChem import GetMorganFingerprintAsBitVect
+from rdkit.DataStructs import TanimotoSimilarity
+import pandas as pd
 
-# 화합물 기본 정보
-scopolamine_smiles = "CN1C2CCC1CC(C2)OC(=O)C3=CC=CC=C3O"
-cocaine_smiles = "CN1C2CCC1CC(C2)OC(=O)C3=CC=CC=C3C(=O)OC"
-tanimoto_sim = 0.76  # 실제 유사도 값 예시
+# 내부 비교용 SMILES 데이터 (예시)
+data_smiles = [
+    ("Aspirin", "CC(=O)OC1=CC=CC=C1C(=O)O"),
+    ("Caffeine", "CN1C=NC2=C1C(=O)N(C(=O)N2C)C"),
+    ("Acetaminophen", "CC(=O)NC1=CC=C(O)C=C1"),
+    ("Ibuprofen", "CC(C)CC1=CC=C(C=C1)C(C)C(=O)O"),
+    ("Naproxen", "CC1=CC=C(C=C1)C(O)=C(C)C(=O)O")
+]
 
-# 이미지 URL (미리 생성된 구조 이미지)
-scopolamine_img = "https://raw.githubusercontent.com/your-repo/scopolamine.png"
-cocaine_img = "https://raw.githubusercontent.com/your-repo/cocaine.png"
+st.title("화합물 구조 유사성 비교기")
+user_smiles = st.text_input("SMILES 화학식을 입력하세요:")
 
-# 앱 타이틀
-st.set_page_config(page_title="Scopolamine vs Cocaine 유사성", layout="centered")
-st.title("💊 Scopolamine vs Cocaine 구조 유사성 분석")
+if user_smiles:
+    try:
+        user_mol = Chem.MolFromSmiles(user_smiles)
+        user_fp = GetMorganFingerprintAsBitVect(user_mol, radius=2, nBits=2048)
 
-st.markdown("""
-이 앱은 **스코폴라민(Scopolamine)** (한방 약재 낭탕근 유래)과 **코카인(Cocaine)** 간의  
-구조적 유사성을 **Tanimoto Similarity** 값을 통해 분석합니다.
-""")
+        results = []
+        for name, smiles in data_smiles:
+            mol = Chem.MolFromSmiles(smiles)
+            fp = GetMorganFingerprintAsBitVect(mol, radius=2, nBits=2048)
+            sim = TanimotoSimilarity(user_fp, fp)
+            results.append((name, smiles, sim, mol))
 
-# 구조 이미지 및 SMILES 출력
-col1, col2 = st.columns(2)
-with col1:
-    st.subheader("Scopolamine")
-    st.image(scopolamine_img, caption="Scopolamine 구조", use_column_width=True)
-    st.code(scopolamine_smiles)
+        results.sort(key=lambda x: x[2], reverse=True)
 
-with col2:
-    st.subheader("Cocaine")
-    st.image(cocaine_img, caption="Cocaine 구조", use_column_width=True)
-    st.code(cocaine_smiles)
+        st.subheader("유사한 화합물:")
+        for name, smiles, sim, mol in results[:5]:
+            st.write(f"**{name}** - Tanimoto 유사도: {sim:.3f}")
+            st.image(Draw.MolToImage(mol, size=(200,200)))
 
-# 유사성 출력
-st.markdown("---")
-st.subheader("🔗 Tanimoto 유사도 (예시값)")
-st.metric(label="Tanimoto Similarity", value=f"{tanimoto_sim:.2f}")
-
-st.markdown("""
-- **0.0**: 완전 불일치  
-- **1.0**: 완전 일치  
-- 일반적으로 **0.5 이상**이면 구조적 유사성이 있다고 간주됩니다.
-""")
-
+    except Exception as e:
+        st.error(f"입력 오류: {e}")
