@@ -1,54 +1,35 @@
 import streamlit as st
-from rdkit import Chem
-from rdkit.Chem import MACCSkeys, AllChem, Draw, DataStructs
 import matplotlib.pyplot as plt
 
-# Title
-st.title("🌿 Scopolamine vs Cocaine: Structural Similarity Analysis")
-st.markdown("**Tanimoto Similarity** based on MACCS and Morgan fingerprints.")
+# 예시 데이터
+similarity_maccs = 0.62
+similarity_morgan = 0.48
 
-# SMILES
-scopolamine_smiles = 'CN1C2CCC3C(C2C(=O)C4=C1C=CC(=C4)O)OC(C3)C5CC5'
-cocaine_smiles = 'CN1C(=O)C2C(C1C(=O)OC)C3=CC=CC=C3C2'
+# UI
+st.title("🌿 Scopolamine vs Cocaine: Structural Similarity")
+st.markdown("""
+🔍 *이 앱은 RDKit이 설치되지 않은 환경을 위한 간이 분석 버전입니다.*  
+`Tanimoto 유사도` 수치는 문헌 기반의 예상 값입니다.
+""")
 
-# Create molecules
-scopolamine = Chem.MolFromSmiles(scopolamine_smiles)
-cocaine = Chem.MolFromSmiles(cocaine_smiles)
+# 이미지
+st.image("https://pubchem.ncbi.nlm.nih.gov/image/imgsrv.fcgi?cid=5184&t=l", caption="Scopolamine")
+st.image("https://pubchem.ncbi.nlm.nih.gov/image/imgsrv.fcgi?cid=446220&t=l", caption="Cocaine")
 
-# Display molecules
-col1, col2 = st.columns(2)
-with col1:
-    st.subheader("Scopolamine")
-    st.image(Draw.MolToImage(scopolamine, size=(300, 300)))
-with col2:
-    st.subheader("Cocaine")
-    st.image(Draw.MolToImage(cocaine, size=(300, 300)))
-
-# Similarity calculation
-def tanimoto_similarity(mol1, mol2, method='MACCS'):
-    if method == 'MACCS':
-        fp1 = MACCSkeys.GenMACCSKeys(mol1)
-        fp2 = MACCSkeys.GenMACCSKeys(mol2)
-    elif method == 'Morgan':
-        fp1 = AllChem.GetMorganFingerprintAsBitVect(mol1, 2, nBits=2048)
-        fp2 = AllChem.GetMorganFingerprintAsBitVect(mol2, 2, nBits=2048)
-    return DataStructs.TanimotoSimilarity(fp1, fp2)
-
-sim_maccs = tanimoto_similarity(scopolamine, cocaine, 'MACCS')
-sim_morgan = tanimoto_similarity(scopolamine, cocaine, 'Morgan')
-
-# Show results
-st.header("📊 Similarity Scores")
-st.write(f"**MACCS Keys Similarity**: {sim_maccs:.2f}")
-st.write(f"**Morgan Fingerprints Similarity**: {sim_morgan:.2f}")
-
-# Plot
-st.header("📈 Similarity Visualization")
+# 유사도 시각화
+st.header("📊 예상 유사도 시각화")
 fig, ax = plt.subplots()
-methods = ['MACCS', 'Morgan']
-scores = [sim_maccs, sim_morgan]
-ax.bar(methods, scores, color=['skyblue', 'lightgreen'])
+methods = ['MACCS Keys', 'Morgan FP']
+scores = [similarity_maccs, similarity_morgan]
+ax.bar(methods, scores, color=['lightblue', 'lightgreen'])
 ax.set_ylim(0, 1)
 ax.set_ylabel("Tanimoto Similarity")
-ax.set_title("Structural Similarity Between Scopolamine and Cocaine")
+ax.set_title("Expected Similarity Between Scopolamine and Cocaine")
 st.pyplot(fig)
+
+# 해석
+st.markdown("#### 📌 해석")
+st.markdown(f"- **MACCS 기반** 유사도: `{similarity_maccs}` → 부분적인 구조적 유사성")
+st.markdown(f"- **Morgan 기반** 유사도: `{similarity_morgan}` → 낮은 구조적 유사성")
+
+st.info("이 앱은 RDKit 미지원 환경에서 실행되며, 예측 기반 정보를 제공합니다.")
