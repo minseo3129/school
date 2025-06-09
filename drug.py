@@ -1,35 +1,48 @@
 import streamlit as st
+from rdkit import Chem
+from rdkit.Chem import Draw
+from rdkit.Chem import MACCSkeys, DataStructs
 import matplotlib.pyplot as plt
 
-# 예시 데이터
-similarity_maccs = 0.62
-similarity_morgan = 0.48
+# --- 화합물 SMILES 정의 (스코폴라민과 코카인) ---
+scopolamine_smiles = "CN1C2CCC1CC(C2)OC(=O)C3=CC=CC=C3O"
+cocaine_smiles = "CN1C2CCC1CC(C2)OC(=O)C3=CC=CC=C3C(=O)OC"
 
-# UI
-st.title("🌿 Scopolamine vs Cocaine: Structural Similarity")
+# --- 분자 객체 생성 ---
+mol_scopolamine = Chem.MolFromSmiles(scopolamine_smiles)
+mol_cocaine = Chem.MolFromSmiles(cocaine_smiles)
+
+# --- Fingerprint 생성 (MACCS Keys) ---
+fps_scopolamine = MACCSkeys.GenMACCSKeys(mol_scopolamine)
+fps_cocaine = MACCSkeys.GenMACCSKeys(mol_cocaine)
+
+# --- Tanimoto 유사도 계산 ---
+tanimoto_sim = DataStructs.FingerprintSimilarity(fps_scopolamine, fps_cocaine)
+
+# --- Streamlit 앱 구성 ---
+st.title("Scopolamine vs Cocaine 구조 유사성 분석")
+
 st.markdown("""
-🔍 *이 앱은 RDKit이 설치되지 않은 환경을 위한 간이 분석 버전입니다.*  
-`Tanimoto 유사도` 수치는 문헌 기반의 예상 값입니다.
+이 앱은 스코폴라민(Scopolamine, 낭탕근 유래)과 코카인(Cocaine) 간의 구조적 유사성을 **MACCS Keys** 및 **Tanimoto Similarity**를 통해 분석합니다.
 """)
 
-# 이미지
-st.image("https://pubchem.ncbi.nlm.nih.gov/image/imgsrv.fcgi?cid=5184&t=l", caption="Scopolamine")
-st.image("https://pubchem.ncbi.nlm.nih.gov/image/imgsrv.fcgi?cid=446220&t=l", caption="Cocaine")
+col1, col2 = st.columns(2)
+with col1:
+    st.subheader("Scopolamine")
+    st.image(Draw.MolToImage(mol_scopolamine, size=(300, 300)))
+    st.code(scopolamine_smiles)
 
-# 유사도 시각화
-st.header("📊 예상 유사도 시각화")
-fig, ax = plt.subplots()
-methods = ['MACCS Keys', 'Morgan FP']
-scores = [similarity_maccs, similarity_morgan]
-ax.bar(methods, scores, color=['lightblue', 'lightgreen'])
-ax.set_ylim(0, 1)
-ax.set_ylabel("Tanimoto Similarity")
-ax.set_title("Expected Similarity Between Scopolamine and Cocaine")
-st.pyplot(fig)
+with col2:
+    st.subheader("Cocaine")
+    st.image(Draw.MolToImage(mol_cocaine, size=(300, 300)))
+    st.code(cocaine_smiles)
 
-# 해석
-st.markdown("#### 📌 해석")
-st.markdown(f"- **MACCS 기반** 유사도: `{similarity_maccs}` → 부분적인 구조적 유사성")
-st.markdown(f"- **Morgan 기반** 유사도: `{similarity_morgan}` → 낮은 구조적 유사성")
+st.markdown("---")
+st.subheader("Tanimoto 유사도 (MACCS Keys 기반)")
+st.metric(label="Tanimoto Similarity", value=f"{tanimoto_sim:.3f}")
 
-st.info("이 앱은 RDKit 미지원 환경에서 실행되며, 예측 기반 정보를 제공합니다.")
+st.markdown("""
+- **0.0**: 완전 불일치
+- **1.0**: 완전 일치
+- 일반적으로 **0.5 이상**이면 구조적 유사성이 있다고 판단 가능
+""")
