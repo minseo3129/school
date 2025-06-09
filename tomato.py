@@ -1,11 +1,11 @@
+# streamlit_app.py
+
 import streamlit as st
 import numpy as np
 from PIL import Image
 import os
-import matplotlib.pyplot as plt
-from io import BytesIO
 
-# ===== 트리 구조 정의 =====
+# ===== 트리 노드 클래스 정의 =====
 class TreeNode:
     def __init__(self, feature_name=None, threshold=None, label=None):
         self.feature_name = feature_name
@@ -17,87 +17,77 @@ class TreeNode:
     def is_leaf(self):
         return self.label is not None
 
-# ===== 간단한 트리 구성 예시 (색상 기반) =====
-def build_sample_tree():
-    root = TreeNode("Red Intensity", 100)
-    root.left = TreeNode("Green Intensity", 80)
-    root.right = TreeNode("Blue Intensity", 120)
+# ===== 트리 샘플 구조 정의 (간단한 임계값 분류) =====
+def build_tree():
+    root = TreeNode("Red", 110)
+    root.left = TreeNode("Green", 85)
+    root.right = TreeNode("Blue", 130)
 
-    root.left.left = TreeNode(label="Tomato_Bacterial_spot")
-    root.left.right = TreeNode(label="Tomato_Late_blight")
-    root.right.left = TreeNode(label="Tomato_Leaf_Mold")
+    root.left.left = TreeNode(label="Tomato_Early_blight")
+    root.left.right = TreeNode(label="Tomato_Leaf_Mold")
+    root.right.left = TreeNode(label="Tomato_Bacterial_spot")
     root.right.right = TreeNode(label="Tomato_healthy")
 
     return root
 
-# ===== 이미지에서 RGB 평균 추출 =====
-def extract_rgb_features(image):
-    image = image.resize((128, 128))
-    arr = np.array(image)
+# ===== 이미지 RGB 평균값 추출 함수 =====
+def extract_rgb(image):
+    img = image.resize((128, 128))
+    arr = np.array(img)
     if arr.ndim == 3:
-        red_mean = np.mean(arr[:, :, 0])
-        green_mean = np.mean(arr[:, :, 1])
-        blue_mean = np.mean(arr[:, :, 2])
+        r, g, b = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
+        return np.mean(r), np.mean(g), np.mean(b)
     else:
-        red_mean = green_mean = blue_mean = 0
-    return red_mean, green_mean, blue_mean
+        return 0, 0, 0
 
-# ===== 트리 순회 시각화 =====
-def traverse_and_visualize(node, features, traversal=[], order='pre'):
-    if node is None:
+# ===== 트리 순회 및 경로 추적 =====
+def traverse_tree(node, features, path, order='pre'):
+    if not node:
         return
 
     if order == 'pre':
-        traversal.append((node, features))
+        path.append(node)
 
     if not node.is_leaf():
-        value = features.get(node.feature_name, 0)
+        value = features[node.feature_name]
         if value < node.threshold:
-            traverse_and_visualize(node.left, features, traversal, order)
+            traverse_tree(node.left, features, path, order)
         else:
-            traverse_and_visualize(node.right, features, traversal, order)
+            traverse_tree(node.right, features, path, order)
 
     if order == 'in':
-        traversal.append((node, features))
+        path.append(node)
 
     if order == 'post':
-        traversal.append((node, features))
+        path.append(node)
 
-    return traversal
+# ===== Streamlit 앱 실행 =====
+st.set_page_config(layout="wide")
+st.title("🌿 토마토 질병 분류 시각화 - 이진 탐색 트리 기반")
 
-# ===== Streamlit 앱 구성 =====
-st.set_page_config(page_title="Tomato Tree Classifier", layout="wide")
-st.title("🌱 이진 탐색 트리 기반 토마토 질병 분류 시각화")
+uploaded = st.file_uploader("이미지를 업로드하세요 (jpg, png)", type=["jpg", "jpeg", "png"])
+order = st.radio("트리 순회 방식 선택", ["pre", "in", "post"], horizontal=True)
 
-uploaded_file = st.file_uploader("🔍 질병이 의심되는 토마토 잎 이미지를 업로드하세요", type=["jpg", "png", "jpeg"])
-order = st.selectbox("트리 순회 방식 선택", ["pre", "in", "post"], index=0)
+if uploaded:
+    img = Image.open(uploaded)
+    st.image(img, caption="업로드된 이미지", use_column_width=True)
 
-if uploaded_file:
-    image = Image.open(uploaded_file)
-    st.image(image, caption="업로드된 이미지", use_column_width=True)
+    r, g, b = extract_rgb(img)
+    st.markdown(f"**RGB 평균값**: 🔴 `{r:.2f}`, 🟢 `{g:.2f}`, 🔵 `{b:.2f}`")
 
-    red_mean, green_mean, blue_mean = extract_rgb_features(image)
-    st.write(f"**Red 평균:** {red_mean:.2f}, **Green 평균:** {green_mean:.2f}, **Blue 평균:** {blue_mean:.2f}")
+    features = {"Red": r, "Green": g, "Blue": b}
 
-    features = {
-        "Red Intensity": red_mean,
-        "Green Intensity": green_mean,
-        "Blue Intensity": blue_mean
-    }
+    # 트리 생성 및 순회
+    tree = build_tree()
+    path = []
+    traverse_tree(tree, features, path, order=order)
 
-    # 트리 구축 및 순회
-    tree = build_sample_tree()
-    path = traverse_and_visualize(tree, features, [], order=order)
-
-    # 순회 시각화
-    st.subheader("🧭 순회 경로 시각화")
-    for idx, (node, feats) in enumerate(path):
+    st.subheader("🧭 분류 경로 (트리 순회 결과)")
+    for i, node in enumerate(path):
         if node.is_leaf():
-            st.success(f"[{idx+1}] 예측 결과: **{node.label}**")
+            st.success(f"[{i+1}] ✅ 최종 예측: **{node.label}**")
         else:
-            val = feats[node.feature_name]
-            direction = "왼쪽(작음)" if val < node.threshold else "오른쪽(큼)"
-            st.info(f"[{idx+1}] `{node.feature_name} < {node.threshold}` → {val:.2f} → {direction}")
-
+            val = features[node.feature_name]
+            st.info(f"[{i+1}] `{node.feature_name} < {node.threshold}` → 현재값: `{val:.2f}` → 이동 방향: {'왼쪽' if val < node.threshold else '오른쪽'}")
 else:
-    st.info("왼쪽에서 이미지를 업로드하면 분류 흐름이 시작됩니다.")
+    st.warning("좌측에 토마토 잎 이미지를 업로드해 주세요.")
