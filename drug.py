@@ -1,77 +1,72 @@
 import streamlit as st
 from rdkit import Chem
 from rdkit.Chem import MACCSkeys, AllChem, Draw, DataStructs
-from rdkit.Chem.Draw import rdMolDraw2D
 import matplotlib.pyplot as plt
-import numpy as np
 
-# App Title
-st.title("한방 약재와 마약성 물질 간 구조적 유사성 분석")
+# Title
+st.title("🌿 한방 약재 vs 마약성 물질: 구조적 유사성 분석")
 st.markdown("""
-본 애플리케이션은 **스코폴라민(Scopolamine)**과 **코카인(Cocaine)** 간의 구조적 유사성을 MACCS Keys 및 Morgan Fingerprints 기반으로 분석하고, **Tanimoto 유사도**를 계산합니다.
+이 앱은 **스코폴라민(Scopolamine)**과 **코카인(Cocaine)** 간의 구조적 유사성을 분석하고 시각화합니다.  
+사용된 기법은 **MACCS Keys**와 **Morgan Fingerprints** 기반의 **Tanimoto Similarity**입니다.
 """)
 
-# SMILES 입력
+# SMILES
 scopolamine_smiles = 'CN1C2CCC3C(C2C(=O)C4=C1C=CC(=C4)O)OC(C3)C5CC5'
 cocaine_smiles = 'CN1C(=O)C2C(C1C(=O)OC)C3=CC=CC=C3C2'
 
-# 분자 생성
+# Molecules
 scopolamine = Chem.MolFromSmiles(scopolamine_smiles)
 cocaine = Chem.MolFromSmiles(cocaine_smiles)
 
-st.header("1️⃣ 분자 구조")
+# Draw Molecules
+st.header("🧪 화합물 구조 시각화")
 col1, col2 = st.columns(2)
-
 with col1:
-    st.subheader("스코폴라민")
-    st.image(Draw.MolToImage(scopolamine), use_column_width=True)
-
+    st.subheader("Scopolamine")
+    st.image(Draw.MolToImage(scopolamine, size=(300, 300)))
 with col2:
-    st.subheader("코카인")
-    st.image(Draw.MolToImage(cocaine), use_column_width=True)
+    st.subheader("Cocaine")
+    st.image(Draw.MolToImage(cocaine, size=(300, 300)))
 
-# 유사성 계산 함수
-def calculate_similarity(mol1, mol2, method='MACCS'):
+# Fingerprint-based similarity
+def calculate_similarity(mol1, mol2, method):
     if method == 'MACCS':
         fp1 = MACCSkeys.GenMACCSKeys(mol1)
         fp2 = MACCSkeys.GenMACCSKeys(mol2)
     elif method == 'Morgan':
-        fp1 = AllChem.GetMorganFingerprintAsBitVect(mol1, 2, nBits=2048)
-        fp2 = AllChem.GetMorganFingerprintAsBitVect(mol2, 2, nBits=2048)
+        fp1 = AllChem.GetMorganFingerprintAsBitVect(mol1, radius=2, nBits=2048)
+        fp2 = AllChem.GetMorganFingerprintAsBitVect(mol2, radius=2, nBits=2048)
     return DataStructs.TanimotoSimilarity(fp1, fp2)
 
-# 유사성 계산
-similarity_maccs = calculate_similarity(scopolamine, cocaine, method='MACCS')
-similarity_morgan = calculate_similarity(scopolamine, cocaine, method='Morgan')
+sim_maccs = calculate_similarity(scopolamine, cocaine, 'MACCS')
+sim_morgan = calculate_similarity(scopolamine, cocaine, 'Morgan')
 
-# 결과 출력
-st.header("2️⃣ 구조적 유사성 (Tanimoto Similarity)")
-st.markdown(f"- **MACCS Keys 유사도**: `{similarity_maccs:.2f}`")
-st.markdown(f"- **Morgan Fingerprints 유사도**: `{similarity_morgan:.2f}`")
+# Display results
+st.header("📊 Tanimoto 유사도 계산")
+st.markdown(f"- **MACCS Keys 기반 유사도**: `{sim_maccs:.2f}`")
+st.markdown(f"- **Morgan Fingerprints 기반 유사도**: `{sim_morgan:.2f}`")
 
-# 해석
-st.header("3️⃣ 유사성 해석")
-def interpret_similarity(score):
+# Visualization
+st.header("📈 유사도 시각화")
+fig, ax = plt.subplots()
+methods = ['MACCS', 'Morgan']
+scores = [sim_maccs, sim_morgan]
+ax.bar(methods, scores)
+ax.set_ylim(0, 1)
+ax.set_ylabel("Tanimoto Similarity")
+ax.set_title("Scopolamine vs Cocaine 구조 유사도")
+st.pyplot(fig)
+
+# Interpretation
+def interpret_score(score):
     if score > 0.7:
         return "매우 높은 구조적 유사성"
     elif score > 0.5:
         return "부분적인 구조적 유사성"
     else:
-        return "구조적으로 다름"
+        return "낮은 구조적 유사성"
 
-st.write(f"**MACCS 해석:** {interpret_similarity(similarity_maccs)}")
-st.write(f"**Morgan 해석:** {interpret_similarity(similarity_morgan)}")
+st.header("📌 해석")
+st.markdown(f"**MACCS 해석**: {interpret_score(sim_maccs)}")
+st.markdown(f"**Morgan 해석**: {interpret_score(sim_morgan)}")
 
-# 부가 설명
-st.markdown("""
----
-### 🔬 추가 분석 제안
-- Morphine과의 유사성 분석
-- 약리 작용 비교: 콜린성/도파민성 영향
-- 머신러닝 기반 예측 모델 구축
-- PubChem 및 CNS 데이터 기반 약물 반응 예측
-
-📚 참고 자료:
-- RDKit: https://www.rdkit.org/
-- PubChem: https://pubchem.ncbi.nlm.nih.gov/
-""")
