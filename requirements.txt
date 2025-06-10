@@ -5,3 +5,7 @@ numpy
 pillow
 pandas
 matplotlib
+streamlit
+pandas
+matplotlib
+networkx
